@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>С Днём Рождения... еще на год ближе</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tone.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@200;300;400;500&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #080808;
+            color: #8c8c8c;
+            overflow-x: hidden;
+        }
+
+        .serif {
+            font-family: 'Cormorant Garamond', serif;
+        }
+
+        #rainCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0.35;
+        }
+
+        .fog-overlay {
+            background: radial-gradient(circle at 50% 30%, rgba(20, 20, 25, 0.4) 0%, rgba(5, 5, 5, 0.96) 85%);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .sad-card {
+            background: rgba(15, 15, 18, 0.75);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            transition: all 0.5s ease;
+        }
+
+        .sad-card:hover {
+            border-color: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.9);
+        }
+
+        /* Flame Animation */
+        .flame {
+            width: 10px;
+            height: 18px;
+            background: radial-gradient(ellipse at bottom, rgba(200, 180, 150, 0.9) 0%, rgba(100, 90, 80, 0.4) 60%, transparent 100%);
+            border-radius: 50% 50% 35% 35%;
+            animation: flicker 2.5s infinite alternate ease-in-out;
+            transform-origin: center bottom;
+            filter: drop-shadow(0 0 6px rgba(180, 160, 130, 0.3));
+        }
+
+        .flame.extinguished {
+            display: none;
+        }
+
+        .smoke {
+            display: none;
+            width: 4px;
+            height: 20px;
+            background: rgba(150, 150, 150, 0.2);
+            border-radius: 50%;
+            animation: smokeRise 3s forwards ease-out;
+        }
+
+        @keyframes flicker {
+            0% { transform: scale(1) rotate(-1deg); opacity: 0.8; }
+            25% { transform: scale(1.05) rotate(1deg); opacity: 1; }
+            50% { transform: scale(0.95) rotate(-2deg); opacity: 0.7; }
+            75% { transform: scale(1.02) rotate(1deg); opacity: 0.9; }
+            100% { transform: scale(0.98) rotate(0deg); opacity: 0.85; }
+        }
+
+        @keyframes smokeRise {
+            0% { opacity: 0.6; transform: translateY(0) scaleX(1); }
+            100% { opacity: 0; transform: translateY(-40px) scaleX(3); }
+        }
+
+        .balloon {
+            position: absolute;
+            opacity: 0.15;
+            animation: floatUp 18s infinite linear;
+            pointer-events: none;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(100vh) rotate(0deg); }
+            100% { transform: translateY(-120vh) rotate(15deg); }
+        }
+
+        /* Polaroid Photo Cards */
+        .polaroid-card {
+            background: #121215;
+            padding: 12px 12px 28px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.7);
+            transition: all 0.4s ease;
+            cursor: pointer;
+        }
+
+        .polaroid-card:hover {
+            transform: scale(1.04) rotate(0deg) !important;
+            z-index: 20;
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.9);
+        }
+
+        .polaroid-img {
+            filter: grayscale(80%) sepia(20%) contrast(90%) brightness(85%);
+            transition: filter 0.5s ease;
+        }
+
+        .polaroid-card:hover .polaroid-img {
+            filter: grayscale(0%) contrast(100%) brightness(95%);
+        }
+
+        /* Modal */
+        #photoModal {
+            backdrop-filter: blur(12px);
+            background: rgba(5, 5, 5, 0.92);
+        }
+    </style>
+</head>
+<body class="relative min-h-screen flex flex-col justify-between selection:bg-neutral-800 selection:text-neutral-300">
+
+    <!-- Rain background -->
+    <canvas id="rainCanvas"></canvas>
+    
+    <!-- Dark atmosphere overlay -->
+    <div class="fog-overlay"></div>
+
+    <!-- Floating balloons -->
+    <div id="balloonContainer" class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div class="balloon text-neutral-600 text-6xl" style="left: 10%; animation-delay: 0s;"><i class="fa-solid fa-balloon"></i></div>
+        <div class="balloon text-neutral-700 text-5xl" style="left: 30%; animation-delay: 5s;"><i class="fa-solid fa-balloon"></i></div>
+        <div class="balloon text-neutral-800 text-7xl" style="left: 70%; animation-delay: 2s;"><i class="fa-solid fa-balloon"></i></div>
+        <div class="balloon text-neutral-600 text-4xl" style="left: 85%; animation-delay: 9s;"><i class="fa-solid fa-balloon"></i></div>
+    </div>
+
+    <!-- Header -->
+    <header class="relative z-10 w-full px-6 py-8 flex justify-between items-center max-w-4xl mx-auto border-b border-neutral-900/60">
+        <div class="flex items-center space-x-3">
+            <i class="fa-solid fa-cake-candles text-neutral-600 text-lg"></i>
+            <span class="serif text-lg tracking-widest text-neutral-500 font-light lowercase">ещё один год</span>
+        </div>
+        
+        <button id="audioToggleBtn" onclick="toggleAudio()" class="text-xs uppercase tracking-widest text-neutral-500 hover:text-neutral-300 transition-colors flex items-center space-x-2">
+            <i id="audioIcon" class="fa-solid fa-volume-xmark"></i>
+            <span id="audioText">Звук праздника</span>
+        </button>
+    </header>
+
+    <!-- Main Content -->
+    <main class="relative z-10 max-w-3xl mx-auto px-6 py-12 w-full flex-grow flex flex-col justify-center">
+        
+        <!-- Hero -->
+        <section class="text-center my-8">
+            <p class="text-xs uppercase tracking-[0.3em] text-neutral-600 mb-4">очередной рубеж времени</p>
+            <h1 class="serif text-4xl sm:text-6xl text-neutral-300 font-extralight leading-tight mb-4 tracking-wide">
+                С Днём Рождения.<br>
+                <span class="text-neutral-600 italic">Время неумолимо идет вперед.</span>
+            </h1>
+            <p class="text-neutral-500 max-w-md mx-auto text-sm font-light leading-relaxed mb-8">
+                Ещё один год остался позади. Стрелки часов продолжают свой тихий ход, а мы просто отмеряем ещё одну страницу в темноте.
+            </p>
+        </section>
+
+        <!-- Cake & Candle -->
+        <section class="my-8 sad-card p-8 rounded-xl text-center flex flex-col items-center justify-center relative">
+            <p class="text-xs text-neutral-600 uppercase tracking-widest mb-6">Одинокая свеча</p>
+            
+            <div class="relative flex flex-col items-center justify-center cursor-pointer my-4" onclick="blowCandle()" title="Задуй свечу...">
+                <div id="candleSmoke" class="smoke mb-1"></div>
+                <div id="candleFlame" class="flame mb-1"></div>
+                <div class="w-0.5 h-3 bg-neutral-600"></div>
+                <div class="w-3 h-12 bg-neutral-800 border border-neutral-700/50 rounded-t-sm"></div>
+                <div class="w-32 h-10 bg-neutral-900 border border-neutral-800 rounded-t-md mt-0 flex items-center justify-center">
+                    <div class="w-24 h-px bg-neutral-800"></div>
+                </div>
+                <div class="w-40 h-2 bg-neutral-950 border-t border-neutral-800 rounded-full"></div>
+            </div>
+
+            <p id="candleStatusText" class="text-xs text-neutral-500 italic mt-6 font-light">
+                Нажми на свечу, чтобы задуть её и загадать то, что уже не сбудется.
+            </p>
+        </section>
+
+        <!-- Quotes Carousel -->
+        <section class="my-8 sad-card p-8 rounded-xl text-center relative overflow-hidden">
+            <div class="absolute -top-10 -left-10 text-9xl text-neutral-900/30 font-serif select-none pointer-events-none">“</div>
+            <p id="wishText" class="serif text-2xl sm:text-3xl text-neutral-300 font-light italic mb-4 min-h-[90px] flex items-center justify-center transition-opacity duration-700">
+                «Пусть этот новый год жизни принесёт хотя бы немного тишины и покой твоей уставшей душе.»
+            </p>
+            <p id="wishAuthor" class="text-xs tracking-widest uppercase text-neutral-600">
+                — Поздравление №1
+            </p>
+            
+            <div class="mt-6 flex justify-center">
+                <button onclick="nextWish()" class="text-xs text-neutral-500 hover:text-neutral-300 border border-neutral-800 hover:border-neutral-700 px-4 py-2 rounded-full transition-all">
+                    Следующее пожелание <i class="fa-solid fa-arrow-right-long ml-2"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- Requested Sad Text Section -->
+        <section class="my-12 text-center py-6 border-t border-neutral-900/60">
+            <h2 class="serif text-3xl sm:text-4xl text-neutral-500 font-light italic tracking-widest mb-2">
+                моменты которые уже не вернуть.
+            </h2>
+            <p class="text-xs text-neutral-600 uppercase tracking-widest font-light">архив застывших мгновений</p>
+        </section>
+
+        <!-- Interactive Memory Polaroid Gallery -->
+        <section class="my-6 px-2">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 max-w-3xl mx-auto">
+                
+                <!-- Photo 1: Field selfie -->
+                <div onclick="openModal('photo_2026-11-08_03-48-15_2.jpg', 'Теплые дни в поле', 'Поле, закат и дурачества на память')" 
+                     class="polaroid-card rounded-sm -rotate-2">
+                    <div class="overflow-hidden aspect-square rounded-xs bg-neutral-900">
+                        <img src="photo_2026-11-08_03-48-15_2.jpg" alt="Момент 1" class="polaroid-img w-full h-full object-cover">
+                    </div>
+                    <p class="serif text-center text-xs text-neutral-400 mt-3 italic">«Золотое поле»</p>
+                </div>
+
+                <!-- Photo 2: Story night -->
+                <div onclick="openModal('photo_2026-11-08_03-47-45_2.jpg', 'Ночной кадр', 'Бессонные ночи и атмосфера сторис')" 
+                     class="polaroid-card rounded-sm rotate-3">
+                    <div class="overflow-hidden aspect-square rounded-xs bg-neutral-900">
+                        <img src="photo_2026-11-08_03-47-45_2.jpg" alt="Момент 2" class="polaroid-img w-full h-full object-cover">
+                    </div>
+                    <p class="serif text-center text-xs text-neutral-400 mt-3 italic">«Ночные вспышки»</p>
+                </div>
+
+                <!-- Photo 3: Evening portrait 10.10.2026 -->
+                <div onclick="openModal('photo_2026-11-08_04-06-49_2.jpg', '10.10.2026 19:07', 'Тихий вечер перед темнотой')" 
+                     class="polaroid-card rounded-sm -rotate-1">
+                    <div class="overflow-hidden aspect-square rounded-xs bg-neutral-900">
+                        <img src="photo_2026-11-08_04-06-49_2.jpg" alt="Момент 3" class="polaroid-img w-full h-full object-cover">
+                    </div>
+                    <p class="serif text-center text-xs text-neutral-400 mt-3 italic">«10.10.2026»</p>
+                </div>
+
+                <!-- Photo 4: Story screenshot lying down -->
+                <div onclick="openModal('photo_2026-11-08_04-07-36.jpg', 'Разговоры ни о чём', 'Когда не хотелось никуда спешить')" 
+                     class="polaroid-card rounded-sm rotate-2">
+                    <div class="overflow-hidden aspect-square rounded-xs bg-neutral-900">
+                        <img src="photo_2026-11-08_04-07-36.jpg" alt="Момент 4" class="polaroid-img w-full h-full object-cover">
+                    </div>
+                    <p class="serif text-center text-xs text-neutral-400 mt-3 italic">«Тихий взгляд»</p>
+                </div>
+
+                <!-- Photo 5: Blurry group photo -->
+                <div onclick="openModal('photo_2026-11-08_04-07-31.jpg', 'Размытые воспоминания', 'Время стирает детали, но оставляет чувства')" 
+                     class="polaroid-card rounded-sm -rotate-3">
+                    <div class="overflow-hidden aspect-square rounded-xs bg-neutral-900">
+                        <img src="photo_2026-11-08_04-07-31.jpg" alt="Момент 5" class="polaroid-img w-full h-full object-cover">
+                    </div>
+                    <p class="serif text-center text-xs text-neutral-400 mt-3 italic">«Сквозь туман»</p>
+                </div>
+
+                <!-- Photo 6: Dark room story -->
+                <div onclick="openModal('photo_2026-11-08_04-07-26.jpg', 'Полумрак', 'Тени и воспоминания прошлых дней')" 
+                     class="polaroid-card rounded-sm rotate-1">
+                    <div class="overflow-hidden aspect-square rounded-xs bg-neutral-900">
+                        <img src="photo_2026-11-08_04-07-26.jpg" alt="Момент 6" class="polaroid-img w-full h-full object-cover">
+                    </div>
+                    <p class="serif text-center text-xs text-neutral-400 mt-3 italic">«В темноте»</p>
+                </div>
+
+                <!-- Photo 7: Denim jacket with toy gun -->
+                <div onclick="openModal('photo_2026-11-08_03-49-43_2.jpg', 'Прогулка во дворе', 'Моменты радости, которые кажутся такими далекими')" 
+                     class="polaroid-card rounded-sm -rotate-2">
+                    <div class="overflow-hidden aspect-square rounded-xs bg-neutral-900">
+                        <img src="photo_2026-11-08_03-49-43_2.jpg" alt="Момент 7" class="polaroid-img w-full h-full object-cover">
+                    </div>
+                    <p class="serif text-center text-xs text-neutral-400 mt-3 italic">«Беззаботность»</p>
+                </div>
+
+                <!-- Photo 8: Red light room -->
+                <div onclick="openModal('photo_2026-11-08_03-48-56_2.jpg', 'Красный свет', 'Комната, мысли и тяжелая тишина')" 
+                     class="polaroid-card rounded-sm rotate-2">
+                    <div class="overflow-hidden aspect-square rounded-xs bg-neutral-900">
+                        <img src="photo_2026-11-08_03-48-56_2.jpg" alt="Момент 8" class="polaroid-img w-full h-full object-cover">
+                    </div>
+                    <p class="serif text-center text-xs text-neutral-400 mt-3 italic">«Красный неоновый вечер»</p>
+                </div>
+
+                <!-- Photo 9: Childhood/younger photo -->
+                <div onclick="openModal('photo_2026-11-08_03-48-26_2.jpg', 'С чего всё начиналось', 'Кажется, это было в другой жизни')" 
+                     class="polaroid-card rounded-sm -rotate-1">
+                    <div class="overflow-hidden aspect-square rounded-xs bg-neutral-900">
+                        <img src="photo_2026-11-08_03-48-26_2.jpg" alt="Момент 9" class="polaroid-img w-full h-full object-cover">
+                    </div>
+                    <p class="serif text-center text-xs text-neutral-400 mt-3 italic">«Начало пути»</p>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Photo Fullscreen Modal -->
+        <div id="photoModal" class="fixed inset-0 z-50 hidden flex flex-col items-center justify-center p-4">
+            <button onclick="closeModal()" class="absolute top-6 right-6 text-neutral-400 hover:text-white text-2xl transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="max-w-2xl w-full p-4 sad-card rounded-xl text-center flex flex-col items-center">
+                <img id="modalImg" src="" alt="Детали" class="max-h-[70vh] w-auto object-contain rounded-md border border-neutral-800 mb-4">
+                <h3 id="modalTitle" class="serif text-2xl text-neutral-300 font-light italic"></h3>
+                <p id="modalDesc" class="text-xs text-neutral-500 font-light mt-1 max-w-md"></p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="relative z-10 w-full px-6 py-8 max-w-4xl mx-auto text-center text-xs text-neutral-700">
+        <p class="serif italic text-sm text-neutral-600 mb-2">«Годы уходят тихо, не прощаясь.»</p>
+        <p>© 2026 Мрачное поздравление. Всё уходит в небытие.</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        /* Rain Canvas */
+        const canvas = document.getElementById('rainCanvas');
+        const ctx = canvas.getContext('2d');
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        const drops = [];
+        for (let i = 0; i < 140; i++) {
+            drops.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                length: Math.random() * 18 + 8,
+                speed: Math.random() * 3.5 + 2.5,
+                opacity: Math.random() * 0.25 + 0.08
+            });
+        }
+
+        function drawRain() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.lineWidth = 1;
+            ctx.lineCap = 'round';
+
+            for (let i = 0; i < drops.length; i++) {
+                const d = drops[i];
+                ctx.beginPath();
+                ctx.moveTo(d.x, d.y);
+                ctx.lineTo(d.x - (d.speed * 0.15), d.y + d.length);
+                ctx.strokeStyle = `rgba(150, 150, 165, ${d.opacity})`;
+                ctx.stroke();
+
+                d.y += d.speed;
+                d.x -= d.speed * 0.15;
+
+                if (d.y > height) {
+                    d.y = -d.length;
+                    d.x = Math.random() * (width + 50);
+                }
+            }
+            requestAnimationFrame(drawRain);
+        }
+        drawRain();
+
+        /* Candle Interaction */
+        let isBlown = false;
+        function blowCandle() {
+            if (isBlown) return;
+            isBlown = true;
+            
+            const flame = document.getElementById('candleFlame');
+            const smoke = document.getElementById('candleSmoke');
+            const text = document.getElementById('candleStatusText');
+
+            flame.classList.add('extinguished');
+            smoke.style.display = 'block';
+            text.innerText = "Свеча угасла. Желание растворилось в темноте.";
+            text.classList.add('text-neutral-400');
+        }
+
+        /* Sad Wishes Carousel */
+        const sadWishes = [
+            { text: "«Пусть этот новый год жизни принесёт хотя бы немного тишины и покой твоей уставшей душе.»", author: "— Поздравление №1" },
+            { text: "«С днём рождения. Время течёт сквозь пальцы, но помни: ты всё ещё здесь, несмотря ни на что.»", author: "— Поздравление №2" },
+            { text: "«Ещё одна свеча на торте, ещё один шаг в неизвестность. Держись.»", author: "— Поздравление №3" },
+            { text: "«Желаю тебе найти смысл среди всей этой серости и шума. С твоим днём.»", author: "— Поздравление №4" }
+        ];
+
+        let wishIndex = 0;
+        function nextWish() {
+            const textElem = document.getElementById('wishText');
+            const authorElem = document.getElementById('wishAuthor');
+
+            textElem.style.opacity = '0';
+            setTimeout(() => {
+                wishIndex = (wishIndex + 1) % sadWishes.length;
+                textElem.innerText = sadWishes[wishIndex].text;
+                authorElem.innerText = sadWishes[wishIndex].author;
+                textElem.style.opacity = '1';
+            }, 400);
+        }
+
+        /* Photo Modal Logic */
+        function openModal(imgSrc, title, desc) {
+            const modal = document.getElementById('photoModal');
+            document.getElementById('modalImg').src = imgSrc;
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalDesc').innerText = desc;
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('photoModal').classList.add('hidden');
+        }
+
+        /* Melancholic Sound (Tone.js) */
+        let isAudioPlaying = false;
+        let synth = null;
+        let loop = null;
+
+        async function toggleAudio() {
+            const icon = document.getElementById('audioIcon');
+            const text = document.getElementById('audioText');
+
+            if (!isAudioPlaying) {
+                await Tone.start();
+                
+                synth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "triangle" },
+                    envelope: { attack: 4, decay: 3, sustain: 0.7, release: 6 }
+                }).toDestination();
+
+                synth.volume.value = -22;
+
+                const chords = [["C3", "Eb3", "G3"], ["Ab2", "C3", "Eb3"], ["F2", "Ab2", "C3"], ["G2", "B2", "D3"]];
+                let idx = 0;
+
+                loop = new Tone.Loop(time => {
+                    synth.triggerAttackRelease(chords[idx], "3m", time);
+                    idx = (idx + 1) % chords.length;
+                }, "4m").start(0);
+
+                Tone.Transport.bpm.value = 35;
+                Tone.Transport.start();
+
+                isAudioPlaying = true;
+                icon.className = "fa-solid fa-volume-high text-neutral-400";
+                text.innerText = "Звук включен";
+            } else {
+                Tone.Transport.stop();
+                if (synth) synth.dispose();
+                isAudioPlaying = false;
+                icon.className = "fa-solid fa-volume-xmark";
+                text.innerText = "Звук праздника";
+            }
+        }
+    </script>
+</body>
+</html>
